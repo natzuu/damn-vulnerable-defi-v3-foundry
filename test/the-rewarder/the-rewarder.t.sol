@@ -69,7 +69,7 @@ contract TheRewarderPoolTest is Test {
 
         assertEq(accountingToken.totalSupply(), depositAmount * users.length);
         assertEq(rewardToken.totalSupply(), 0);
-        vm.warp(block.timestamp + 5 days);
+        skip(5 days);
 
         uint256 rewardsInRound = rewarderPool.REWARDS();
         for (uint256 i = 0; i < users.length; i++) {
@@ -84,7 +84,7 @@ contract TheRewarderPoolTest is Test {
     }
 
     function exploit() public {
-        vm.warp(block.timestamp + 5 days);
+        skip(5 days);
         vm.startPrank(player);
         Attack attack = new Attack(address(rewarderPool), address(liquidityToken), address(rewardToken));
         attack.attack(address(flashLoanPool), TOKENS_IN_LENDER_POOL);
