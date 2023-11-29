@@ -53,10 +53,10 @@ contract PuppetTest is Test {
         // Deploy token to be traded in Uniswap
         token = new DamnValuableToken();
 
-        uniswapV1Factory = UniswapV1Factory(deployCode("./build-uniswap-v1/UniswapV1Factory.json"));
+        uniswapV1Factory = UniswapV1Factory(deployCode("./build-uniswap/v1/UniswapV1Factory.json"));
 
         // Deploy a exchange that will be used as the factory template
-        uniswapV1ExchangeTemplate = UniswapV1Exchange(deployCode("./build-uniswap-v1/UniswapV1Exchange.json"));
+        uniswapV1ExchangeTemplate = UniswapV1Exchange(deployCode("./build-uniswap/v1/UniswapV1Exchange.json"));
 
         // Deploy factory, initializing it with the address of the template exchange
         uniswapV1Factory.initializeFactory(address(uniswapV1ExchangeTemplate));
