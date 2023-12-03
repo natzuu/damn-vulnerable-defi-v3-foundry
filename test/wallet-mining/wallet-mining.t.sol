@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.4;
 
 import {Test} from "forge-std/Test.sol";
 import {DamnValuableToken} from "../../src/DamnValuableToken.sol";
@@ -49,12 +49,23 @@ contract WalletMiningTest is Test {
 
         walletDeployer.rule(address(authorizer));
         assertEq(walletDeployer.mom(), address(authorizer));
-        vm.stopPrank();
         assertEq(walletDeployer.can(wards, DEPOSIT_ADDRESS), true);
-        // vm.expectRevert();
+        // vm.expectRevert("EvmError: Revert");
         // walletDeployer.can(player, DEPOSIT_ADDRESS);
-        // assertEq(walletDeployer.can(player, DEPOSIT_ADDRESS));
-        // vm.stopPrank();
+
+        initialWalletDeployerTokenBalance = walletDeployer.pay() * 43;
+        token.transfer(address(walletDeployer), initialWalletDeployerTokenBalance);
+
+        assertEq(DEPOSIT_ADDRESS.code.length, 0);
+        assertEq(address(walletDeployer.fact()).code.length, 0);
+        assertEq(address(walletDeployer.copy()).code.length, 0);
+
+        token.transfer(DEPOSIT_ADDRESS, DEPOSIT_TOKEN_AMOUNT);
+        assertEq(token.balanceOf(DEPOSIT_ADDRESS), DEPOSIT_TOKEN_AMOUNT);
+        assertEq(token.balanceOf(address(walletDeployer)), initialWalletDeployerTokenBalance);
+        assertEq(token.balanceOf(address(player)), 0);
+
+        vm.stopPrank();
     }
 
     function exploit() public {
@@ -65,5 +76,21 @@ contract WalletMiningTest is Test {
 
     function test_exploit() public {
         exploit();
+
+        // Factory account must have code
+        assertTrue(address(walletDeployer.fact()).code.length != 0);
+
+        // Master copy account must have code
+        assertTrue(address(walletDeployer.copy()).code.length != 0);
+
+        // Deposit account must have code
+        assertTrue(DEPOSIT_ADDRESS.code.length != 0);
+
+        // The deposit address and the Safe Deployer contract must not hold tokens
+        assertEq(token.balanceOf(DEPOSIT_ADDRESS), 0);
+        assertEq(token.balanceOf(address(walletDeployer)), 0);
+
+        // Player must own all tokens
+        assertEq(token.balanceOf(address(player)), initialWalletDeployerTokenBalance + DEPOSIT_TOKEN_AMOUNT);
     }
 }
