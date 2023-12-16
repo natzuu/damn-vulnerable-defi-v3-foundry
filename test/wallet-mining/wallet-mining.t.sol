@@ -17,7 +17,7 @@ contract WalletMiningTest is Test {
     AuthorizerUpgradeable public authorizer;
 
     address public constant DEPOSIT_ADDRESS = 0x9B6fb606A9f5789444c17768c6dFCF2f83563801;
-    uint256 public constant DEPOSIT_TOKEN_AMOUNT = 20000000e18;
+    uint256 public constant DEPOSIT_TOKEN_AMOUNT = 20_000_000e18;
     uint256 public initialWalletDeployerTokenBalance;
 
     function setUp() public {
@@ -50,7 +50,7 @@ contract WalletMiningTest is Test {
         walletDeployer.rule(address(authorizer));
         assertEq(walletDeployer.mom(), address(authorizer));
         assertEq(walletDeployer.can(wards, DEPOSIT_ADDRESS), true);
-        // vm.expectRevert("EvmError: Revert");
+        // vm.expectRevert();
         // walletDeployer.can(player, DEPOSIT_ADDRESS);
 
         initialWalletDeployerTokenBalance = walletDeployer.pay() * 43;

